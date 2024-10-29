@@ -1,5 +1,6 @@
 ---
-title: "Your Title"
+title: "Problem Set 4"
+author: "Ben Schiffman and Hallie Lovin"
 format: 
   pdf:
     keep-tex: true
@@ -25,14 +26,145 @@ include-before-body:
 
 ## Download and explore the Provider of Services (POS) file (10 pts)
 
+```{python}
+#import necessary packages
+import pandas as pd 
+import altair as alt
+```
+
 1. 
+The variables that I pulled were: PRVDR_CTGRY_SBTYP_CD - shows the subtype of the provider
+PRVDR_CTGRY_CD - shows the type of provider 
+CITY_NAME - shows the city that the provider is physically located in 
+FAC_NAME - shows the name of the provider that is providing services 
+PRVDR_NUM - shows the CMS certification number 
+STATE_CD - shows the state abbreviation
+ST_ADR - shows the street address where the provider is located 
+PGM_TRMNTN_CD - shows the termination status of the provider 
+TRMNTN_EXPRTN_DT - shows the date that the provider was terminated 
+ZIP_CD - shows the zip code of the providers physical address 
+FIPS_STATE_CD - shows the FIPS state code 
+CBSA_URBN_RRL_IND - shows if the town is urban or rural
 2. 
-    a.
-    b.
+
+```{python}
+#import the data 
+import os
+
+path = r"/Users/hallielovin/Documents/GitHub/problem-set-4-ben_hallie"
+
+pos2016 = r"pos2016.csv"
+
+pos2016_df = pd.read_csv(os.path.join(path, pos2016))
+
+pos2016_df.head()
+```
+
+```{python}
+#subset data to only include those with provider type code 1 and subtype code 1
+pos2016_df = pos2016_df[(pos2016_df["PRVDR_CTGRY_CD"] == 1) & (pos2016_df["PRVDR_CTGRY_SBTYP_CD"] == 1)]
+```
+
+```{python}
+#determine how many hospitals are reported in the data 
+len(pos2016_df)
+```
+
+    a. There are 7,245 hospitals reported in the data that are considered "short term" hospitals. According to the brief by the Kaiser Family Foundation, there are around 5,000 short term, acute care hospitals in the US. That said, the numbers in this data seem much higher. 
+
+    b. After looking at more sources, a CMS report showed that there were 3,436 medicaid participating hospitals in 2016. The reasons that all of these numbers may differ is because some hospitals may have closed which we have not yet accounted for in our data. Additionally, the Kaiser Foundation is looking at all hospitals that are short term and not filtering out those that bill medicare and medicaid. 
 3. 
+
+```{python}
+#load in the data from 2017, 2018, and 2019
+
+##2017
+pos2017 = r"pos2017.csv"
+
+pos2017_df = pd.read_csv(os.path.join(path, pos2017))
+
+pos2017_df.head()
+```
+
+```{python}
+##2018-- I was getting an error (UnicodeDecodeError) so I had to get chatgpt to help 
+pos2018 = r"pos2018.csv"
+
+pos2018_df = pd.read_csv(os.path.join(path, pos2018), encoding="ISO-8859-1")
+
+pos2018_df.head()
+```
+```{python}
+##2019-- I was getting an error (UnicodeDecodeError) so I had to get chatgpt to help 
+pos2019 = r"pos2019.csv"
+
+pos2019_df = pd.read_csv(os.path.join(path, pos2019), encoding="ISO-8859-1")
+
+pos2019_df.head()
+```
+
+```{python}
+#subset out the dataframes so only the code 1's are shown 
+##2017 
+pos2017_df = pos2017_df[(pos2017_df["PRVDR_CTGRY_CD"] == 1) & (pos2017_df["PRVDR_CTGRY_SBTYP_CD"] == 1)]
+```
+
+```{python}
+##2018
+pos2018_df = pos2018_df[(pos2018_df["PRVDR_CTGRY_CD"] == 1) & (pos2018_df["PRVDR_CTGRY_SBTYP_CD"] == 1)]
+```
+
+```{python}
+##2019
+pos2019_df = pos2019_df[(pos2019_df["PRVDR_CTGRY_CD"] == 1) & (pos2019_df["PRVDR_CTGRY_SBTYP_CD"] == 1)]
+```
+```{python}
+#append all of the data sets together into one pos data set using the CMS certification number (prvdr_num)
+
+##add a year column to each dataset 
+pos2016_df["YEAR"] = 2016
+pos2017_df["YEAR"] = 2017
+pos2018_df["YEAR"] = 2018
+pos2019_df["YEAR"] = 2019
+```
+
+```{python}
+##make the large dataframe
+pos_df = pd.concat([pos2016_df, pos2017_df, pos2018_df, pos2019_df], ignore_index = True)
+```
+
+```{python}
+#group the dataset by year and take the count of how many observations are in each year 
+pos_years_count = pos_df.groupby("YEAR").agg(
+  NUM_OBSERVATIONS = ("YEAR", "size")
+).reset_index()
+```
+
+```{python}
+#make a plot of the number of observations by year 
+alt.Chart(pos_years_count).mark_bar().encode(
+  alt.X("YEAR:O"), 
+  alt.Y("NUM_OBSERVATIONS:Q")
+)
+```
+
 4. 
-    a.
-    b.
+
+```{python}
+#make a new dataframe that groups the data by the year counting the unique provider numbers
+pos_unique_count = pos_df.groupby("YEAR")["PRVDR_NUM"].nunique().reset_index()
+```
+
+```{python}
+#make a chart 
+alt.Chart(pos_unique_count).mark_bar().encode(
+  alt.X("YEAR:O"), 
+  alt.Y("PRVDR_NUM:Q")
+)
+```
+
+    a. These plots look the exact same and that is because the numbers are the same that it is taking in.
+    b. This tells us that the data is only contains one observation for each hospital in each year. There are no duplicates for the hospitals.
 
 ## Identify hospital closures in POS file (15 pts) (*)
 
