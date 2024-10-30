@@ -312,7 +312,6 @@ shp = gpd.read_file(shp_path)
 
 ```{python}
 #Pull out only the Texas zip codes
-
 ##indicate what the TX zip codes are 
 texas_code = ("75", "76", "77", "78", "79")
 
@@ -354,6 +353,11 @@ import matplotlib.pyplot as plt
 texas.plot(column = "NUM_HOSPITALS", legend = True)
 ```
 
+
+
+```{python}
+pos2016_df[pos2016_df["ZIP_CD"] == 751]
+```
 
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
