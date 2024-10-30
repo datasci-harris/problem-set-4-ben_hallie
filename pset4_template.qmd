@@ -55,7 +55,7 @@ path = r"/Users/hallielovin/Documents/GitHub/problem-set-4-ben_hallie"
 ben_path = r"/Users/benschiffman/Desktop/Python 2/problem-set-4-ben_hallie"
 pos2016 = r"pos2016.csv"
 
-pos2016_df = pd.read_csv(os.path.join(path, pos2016))
+pos2016_df = pd.read_csv(os.path.join(ben_path, pos2016))
 
 #convert zip code to a string 
 pos2016_df["ZIP_CD"] = pos2016_df["ZIP_CD"].astype(str).str.replace(".0", " ", regex = False)
@@ -84,7 +84,7 @@ len(pos2016_df)
 ##2017
 pos2017 = r"pos2017.csv"
 
-pos2017_df = pd.read_csv(os.path.join(path, pos2017))
+pos2017_df = pd.read_csv(os.path.join(ben_path, pos2017))
 
 #convert zips to string 
 pos2017_df["ZIP_CD"] = pos2017_df["ZIP_CD"].astype(str).str.replace(".0", " ", regex = False)
@@ -96,7 +96,7 @@ pos2017_df.head()
 ##2018-- I was getting an error (UnicodeDecodeError) so I had to get chatgpt to help 
 pos2018 = r"pos2018.csv"
 
-pos2018_df = pd.read_csv(os.path.join(path, pos2018), encoding="ISO-8859-1")
+pos2018_df = pd.read_csv(os.path.join(ben_path, pos2018), encoding="ISO-8859-1")
 
 #convert zip to string 
 pos2018_df["ZIP_CD"] = pos2018_df["ZIP_CD"].astype(str).str.replace(".0", " ", regex = False)
@@ -107,7 +107,7 @@ pos2018_df.head()
 ##2019-- I was getting an error (UnicodeDecodeError) so I had to get chatgpt to help 
 pos2019 = r"pos2019.csv"
 
-pos2019_df = pd.read_csv(os.path.join(path, pos2019), encoding="ISO-8859-1")
+pos2019_df = pd.read_csv(os.path.join(ben_path, pos2019), encoding="ISO-8859-1")
 
 #convert zip to string 
 pos2019_df["ZIP_CD"] = pos2019_df["ZIP_CD"].astype(str).str.replace(".0", " ", regex = False)
@@ -184,37 +184,31 @@ alt.Chart(pos_unique_count).mark_bar().encode(
 ```{python}
 #making 2016 list of actives
 active_2016 = pos_df[pos_df["PGM_TRMNTN_CD"] == 0]
-active_2016 = active_2016[pos_df["YEAR"] == 2016]
+active_2016 = active_2016[active_2016["YEAR"] == 2016]
+len(active_2016)
 
 #sort by 2016 actives
-term_p2016 = pos_df[(pos_df["FAC_NAME"].isin(active_2016["FAC_NAME"])) & (pos_df["YEAR"]> 2016)]
+term_p2016 = pos_df[(pos_df["PRVDR_NUM"].isin(active_2016["PRVDR_NUM"])) & (pos_df["YEAR"]> 2016)]
 
 #finding rows where termination code isnt 0
 term_p2016 = term_p2016[term_p2016["PGM_TRMNTN_CD"] != 0]
 
 #group by facility name then only retain the lowest year
-min_year = term_p2016.groupby("FAC_NAME")["YEAR"].min().reset_index()
+term_p2016 = term_p2016.groupby("PRVDR_NUM")[["FAC_NAME", "ZIP_CD", "YEAR"]].min().reset_index()
+term_p2016.head()
 
-#merging back to include more info, in this case just zip code
-when_term_results = min_year.merge(term_p2016[["FAC_NAME", "YEAR", "ZIP_CD"]],
-  on = ["FAC_NAME", "YEAR"],
-  how = "left"
-  )
-print(len(when_term_results), "hospitals fit this definition")
+print(len(term_p2016), "hospitals fit this definition")
 #consult with hallie on repeats by different zips
 ```
-
-378 hospitals fit this definition
 
 2. 
 ```{python}
 #sort values by facility name
-when_term_results = when_term_results.sort_values(by = "FAC_NAME")
+term_p2016 = term_p2016.sort_values(by = "FAC_NAME")
 
 #printing top 10 results
-print(when_term_results.head(10))
+print(term_p2016.head(10))
 ```
-
 3. 
     a.
 ```{python}
@@ -226,25 +220,24 @@ active_zips["ZIP_CD"]
 zips_term_counts = active_zips.groupby(["ZIP_CD", "terminated", "YEAR"]).size().reset_index(name = "count")
 
 #test that there are actually unique results in here
-zips_term_counts
 zips_term_counts["count"].unique()
 zips_term_counts = zips_term_counts[["ZIP_CD", "YEAR", "count"]]
 ```
 
 ```{python}
 #now I'll test whether the zips listed in when_term_results actually change in the year after shown
-when_term_results["year+"] = when_term_results["YEAR"] + 1
+term_p2016["year+"] = term_p2016["YEAR"] + 1
 
 #eliminate any duplicates 
 zips_term_counts = zips_term_counts.groupby(["ZIP_CD", "YEAR"], as_index=False).agg({"count": "sum"})
 
 #merge on year terminated
-results1 = zips_term_counts.merge(when_term_results[["ZIP_CD", "YEAR"]],
+results1 = zips_term_counts.merge(term_p2016[["ZIP_CD", "YEAR"]],
   how = "right")
 results1 = results1[["ZIP_CD", "YEAR", "count"]]
 
 #merge on next year
-results2 = zips_term_counts.merge(when_term_results[["ZIP_CD", "year+"]],
+results2 = zips_term_counts.merge(term_p2016[["ZIP_CD", "year+"]],
   left_on = ["ZIP_CD", "YEAR"],
   right_on = ["ZIP_CD", "year+"],
   how = "right")
@@ -260,6 +253,7 @@ len(results)
 ```{python}
 #pulling out the non-terminated bunch
 nterminated = results[results["count_x"] == results["count_y"]]
+nterminated.head()
 
 print("Based on the above,",len(nterminated),"of", len(when_term_results), "zip codes are not true terminations")
 ```
@@ -319,7 +313,10 @@ import geopandas as gpd
 #load in the data
 shp_path = "/Users/hallielovin/Documents/GitHub/problem-set-4-ben_hallie/gz_2010_us_860_00_500k"
 
-shp = gpd.read_file(shp_path)
+ben_shp_path = f"/Users/benschiffman/Desktop/Python 2/problem-set-4-ben_hallie/gz_2010_us_860_00_500k"
+
+
+shp = gpd.read_file(ben_shp_path)
 ```
 
 ```{python}
@@ -363,12 +360,6 @@ import matplotlib.pyplot as plt
 
 ```{python}
 texas.plot(column = "NUM_HOSPITALS", legend = True)
-```
-
-
-
-```{python}
-pos2016_df[pos2016_df["ZIP_CD"] == "751"]
 ```
 
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
