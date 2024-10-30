@@ -308,8 +308,6 @@ import geopandas as gpd
 shp_path = "/Users/hallielovin/Documents/GitHub/problem-set-4-ben_hallie/gz_2010_us_860_00_500k"
 
 shp = gpd.read_file(shp_path)
-
-shp.head()
 ```
 
 ```{python}
@@ -335,33 +333,27 @@ zip_count = texas_2016.groupby("ZIP_CD").agg(
 ```
 
 ```{python}
+#Clean up the zip codes a bit -- needed chatgpt help on this since it was not working at first
 zip_count["ZIP_CD"] = zip_count["ZIP_CD"].astype(str).str.replace('.0', '', regex=False).str.strip()
 
-texas["ZCTA5"] = texas["ZCTA5"].astype(str).str.strip()
+shp["ZCTA5"] = shp["ZCTA5"].astype(str).str.strip()
 
-texas = texas.merge(zip_count, left_on='ZCTA5', right_on='ZIP_CD', how='left')
+#merge the datasets by zip code
+texas = texas.merge(zip_count, left_on="ZCTA5", right_on="ZIP_CD", how="left")
 
+#Make anything that is NA = to 0
 texas["NUM_HOSPITALS"] = texas["NUM_HOSPITALS"].fillna(0)
 ```
 
+
 ```{python}
-texas.head()
+import matplotlib.pyplot as plt
 ```
 
 ```{python}
-#make the chloropleth 
-texas_chloro = alt.Chart(texas).mark_geoshape().encode(
-    color="NUM_HOSPITALS:Q",
-    tooltip=["ZCTA5:N", "NUM_HOSPITALS:Q"]
-).properties(
-    width=800,
-    height=400
-).project("albersUsa")
+texas.plot(column = "NUM_HOSPITALS", legend = True)
 ```
 
-```{python}
-texas_chloro.display()
-```
 
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
