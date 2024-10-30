@@ -57,6 +57,9 @@ pos2016 = r"pos2016.csv"
 
 pos2016_df = pd.read_csv(os.path.join(path, pos2016))
 
+#convert zip code to a string 
+pos2016_df["ZIP_CD"] = pos2016_df["ZIP_CD"].astype(str).str.replace(".0", " ", regex = False)
+
 pos2016_df.head()
 ```
 
@@ -83,6 +86,9 @@ pos2017 = r"pos2017.csv"
 
 pos2017_df = pd.read_csv(os.path.join(path, pos2017))
 
+#convert zips to string 
+pos2017_df["ZIP_CD"] = pos2017_df["ZIP_CD"].astype(str).str.replace(".0", " ", regex = False)
+
 pos2017_df.head()
 ```
 
@@ -92,6 +98,9 @@ pos2018 = r"pos2018.csv"
 
 pos2018_df = pd.read_csv(os.path.join(path, pos2018), encoding="ISO-8859-1")
 
+#convert zip to string 
+pos2018_df["ZIP_CD"] = pos2018_df["ZIP_CD"].astype(str).str.replace(".0", " ", regex = False)
+
 pos2018_df.head()
 ```
 ```{python}
@@ -99,6 +108,9 @@ pos2018_df.head()
 pos2019 = r"pos2019.csv"
 
 pos2019_df = pd.read_csv(os.path.join(path, pos2019), encoding="ISO-8859-1")
+
+#convert zip to string 
+pos2019_df["ZIP_CD"] = pos2019_df["ZIP_CD"].astype(str).str.replace(".0", " ", regex = False)
 
 pos2019_df.head()
 ```
@@ -356,7 +368,7 @@ texas.plot(column = "NUM_HOSPITALS", legend = True)
 
 
 ```{python}
-pos2016_df[pos2016_df["ZIP_CD"] == 751]
+pos2016_df[pos2016_df["ZIP_CD"] == "751"]
 ```
 
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
