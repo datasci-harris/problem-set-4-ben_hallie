@@ -52,10 +52,10 @@ CBSA_URBN_RRL_IND - shows if the town is urban or rural
 import os
 
 path = r"/Users/hallielovin/Documents/GitHub/problem-set-4-ben_hallie"
-
+ben_path = r"/Users/benschiffman/Desktop/Python 2/problem-set-4-ben_hallie"
 pos2016 = r"pos2016.csv"
 
-pos2016_df = pd.read_csv(os.path.join(path, pos2016))
+pos2016_df = pd.read_csv(os.path.join(ben_path, pos2016))
 
 pos2016_df.head()
 ```
@@ -81,7 +81,7 @@ len(pos2016_df)
 ##2017
 pos2017 = r"pos2017.csv"
 
-pos2017_df = pd.read_csv(os.path.join(path, pos2017))
+pos2017_df = pd.read_csv(os.path.join(ben_path, pos2017))
 
 pos2017_df.head()
 ```
@@ -90,7 +90,7 @@ pos2017_df.head()
 ##2018-- I was getting an error (UnicodeDecodeError) so I had to get chatgpt to help 
 pos2018 = r"pos2018.csv"
 
-pos2018_df = pd.read_csv(os.path.join(path, pos2018), encoding="ISO-8859-1")
+pos2018_df = pd.read_csv(os.path.join(ben_path, pos2018), encoding="ISO-8859-1")
 
 pos2018_df.head()
 ```
@@ -98,7 +98,7 @@ pos2018_df.head()
 ##2019-- I was getting an error (UnicodeDecodeError) so I had to get chatgpt to help 
 pos2019 = r"pos2019.csv"
 
-pos2019_df = pd.read_csv(os.path.join(path, pos2019), encoding="ISO-8859-1")
+pos2019_df = pd.read_csv(os.path.join(ben_path, pos2019), encoding="ISO-8859-1")
 
 pos2019_df.head()
 ```
@@ -169,12 +169,112 @@ alt.Chart(pos_unique_count).mark_bar().encode(
 ## Identify hospital closures in POS file (15 pts) (*)
 
 1. 
+```{python}
+#making 2016 list of actives
+active_2016 = pos_df[pos_df["PGM_TRMNTN_CD"] == 0]
+active_2016 = active_2016[pos_df["YEAR"] == 2016]
+
+#sort by 2016 actives
+term_p2016 = pos_df[(pos_df["FAC_NAME"].isin(active_2016["FAC_NAME"])) & (pos_df["YEAR"]> 2016)]
+
+#finding rows where termination code isnt 0
+term_p2016 = term_p2016[term_p2016["PGM_TRMNTN_CD"] != 0]
+
+#group by facility name then only retain the lowest year
+min_year = term_p2016.groupby("FAC_NAME")["YEAR"].min().reset_index()
+
+#merging back to include more info, in this case just zip code
+when_term_results = min_year.merge(term_p2016[["FAC_NAME", "YEAR", "ZIP_CD"]],
+  on = ["FAC_NAME", "YEAR"],
+  how = "left"
+  )
+print(len(when_term_results), "hospitals fit this definition")
+#consult with hallie on repeats by different zips
+```
+
 2. 
+```{python}
+#sort values by facility name
+when_term_results = when_term_results.sort_values(by = "FAC_NAME")
+
+#printing top 10 results
+print(when_term_results.head(10))
+
+```
 3. 
     a.
-    b.
-    c.
+```{python}
+#first create a df that will count active hospitals by zip by year
+active_zips = pos_df.copy()
+active_zips["terminated"] = active_zips["PGM_TRMNTN_CD"].apply(lambda x: "no" if x == 0 else "yes")
+active_zips["ZIP_CD"]
 
+zips_term_counts = active_zips.groupby(["ZIP_CD", "terminated", "YEAR"]).size().reset_index(name = "count")
+
+#test that there are actually unique results in here
+zips_term_counts
+zips_term_counts["count"].unique()
+zips_term_counts = zips_term_counts[["ZIP_CD", "YEAR", "count"]]
+```
+
+```{python}
+#now I'll test whether the zips listed in when_term_results actually change in the year after shown
+when_term_results["year+"] = when_term_results["YEAR"] + 1
+
+#eliminate any duplicates 
+zips_term_counts = zips_term_counts.groupby(["ZIP_CD", "YEAR"], as_index=False).agg({"count": "sum"})
+
+#merge on year terminated
+results1 = zips_term_counts.merge(when_term_results[["ZIP_CD", "YEAR"]],
+  how = "right")
+results1 = results1[["ZIP_CD", "YEAR", "count"]]
+
+#merge on next year
+results2 = zips_term_counts.merge(when_term_results[["ZIP_CD", "year+"]],
+  left_on = ["ZIP_CD", "YEAR"],
+  right_on = ["ZIP_CD", "year+"],
+  how = "right")
+results2 = results2[["ZIP_CD", "YEAR", "count"]]
+
+#merge together to find where counts overlap
+results = results1.merge(results2,
+  on = ["ZIP_CD"])
+results.head(10)
+len(results)
+```
+
+```{python}
+#pulling out the non-terminated bunch
+nterminated = results[results["count_x"] == results["count_y"]]
+
+print("Based on the above,",len(nterminated),"of", len(when_term_results), "zip codes are not true terminations")
+```
+    b.
+```{python}
+#do reverse of n terminated and keep only those zips
+
+terminated = results[results["count_x"] != results["count_y"]]
+terminated_df = pos_df[pos_df["ZIP_CD"].isin(terminated["ZIP_CD"])]
+terminated_df = terminated_df.groupby("FAC_NAME").size().reset_index()
+terminated_df = terminated_df["FAC_NAME"]
+
+print("After first pass,", len(terminated_df), "hospitals remain")
+```
+
+```{python}
+#finding the non-mergers
+term_non_mergers = pos_df[pos_df["ZIP_CD"].isin(terminated["ZIP_CD"])]
+term_non_mergers= term_non_mergers[term_non_mergers["PGM_TRMNTN_CD"] != 1]
+term_non_mergers = term_non_mergers.groupby("FAC_NAME").size().reset_index()
+term_non_mergers = term_non_mergers["FAC_NAME"]
+
+print("After removing voluntary mergers,", len(term_non_mergers), "hospitals remain")
+```
+    c.
+```{python}
+#first 10 remaining hospitals
+print(term_non_mergers.sort_values().head(10))
+```
 ## Download Census zip code shapefile (10 pt) 
 
 1. 
