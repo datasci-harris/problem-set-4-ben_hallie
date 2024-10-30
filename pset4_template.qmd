@@ -55,7 +55,7 @@ path = r"/Users/hallielovin/Documents/GitHub/problem-set-4-ben_hallie"
 ben_path = r"/Users/benschiffman/Desktop/Python 2/problem-set-4-ben_hallie"
 pos2016 = r"pos2016.csv"
 
-pos2016_df = pd.read_csv(os.path.join(ben_path, pos2016))
+pos2016_df = pd.read_csv(os.path.join(path, pos2016))
 
 pos2016_df.head()
 ```
@@ -81,7 +81,7 @@ len(pos2016_df)
 ##2017
 pos2017 = r"pos2017.csv"
 
-pos2017_df = pd.read_csv(os.path.join(ben_path, pos2017))
+pos2017_df = pd.read_csv(os.path.join(path, pos2017))
 
 pos2017_df.head()
 ```
@@ -90,7 +90,7 @@ pos2017_df.head()
 ##2018-- I was getting an error (UnicodeDecodeError) so I had to get chatgpt to help 
 pos2018 = r"pos2018.csv"
 
-pos2018_df = pd.read_csv(os.path.join(ben_path, pos2018), encoding="ISO-8859-1")
+pos2018_df = pd.read_csv(os.path.join(path, pos2018), encoding="ISO-8859-1")
 
 pos2018_df.head()
 ```
@@ -98,7 +98,7 @@ pos2018_df.head()
 ##2019-- I was getting an error (UnicodeDecodeError) so I had to get chatgpt to help 
 pos2019 = r"pos2019.csv"
 
-pos2019_df = pd.read_csv(os.path.join(ben_path, pos2019), encoding="ISO-8859-1")
+pos2019_df = pd.read_csv(os.path.join(path, pos2019), encoding="ISO-8859-1")
 
 pos2019_df.head()
 ```
@@ -192,6 +192,8 @@ print(len(when_term_results), "hospitals fit this definition")
 #consult with hallie on repeats by different zips
 ```
 
+378 hospitals fit this definition
+
 2. 
 ```{python}
 #sort values by facility name
@@ -199,8 +201,8 @@ when_term_results = when_term_results.sort_values(by = "FAC_NAME")
 
 #printing top 10 results
 print(when_term_results.head(10))
-
 ```
+
 3. 
     a.
 ```{python}
@@ -249,6 +251,7 @@ nterminated = results[results["count_x"] == results["count_y"]]
 
 print("Based on the above,",len(nterminated),"of", len(when_term_results), "zip codes are not true terminations")
 ```
+
     b.
 ```{python}
 #do reverse of n terminated and keep only those zips
@@ -275,12 +278,90 @@ print("After removing voluntary mergers,", len(term_non_mergers), "hospitals rem
 #first 10 remaining hospitals
 print(term_non_mergers.sort_values().head(10))
 ```
+
 ## Download Census zip code shapefile (10 pt) 
 
 1. 
-    a.
-    b. 
+    a. The five file types are: 
+    .dbf: contains information about the file, the data records, and the end of the file
+    .prj: contains information about the coordinate system so the data can be projected onto a map 
+    .shp: contains information about geographic information and attributes of the data 
+    .shx: contains information about the shape files that are used for fonts and line types 
+    .xml: contains data that is in plain text format
+
+    b. The size of the files are as follows. These are listed in order from biggest to smallest: 
+    .shp: 837,544,580 bytes (852.9 MB on disk)
+    .dbf: 6,425,474 bytes (6.4 MB on disk)
+    .shx: 265,060 bytes (266 KB on disk)
+    .xml: 15,639 bytes (16 KB on disk)
+    .prj: 165 bytes (4 KB on disk)
 2. 
+
+```{python}
+#load in necessary package
+import shapely
+import geopandas as gpd
+```
+
+```{python}
+#load in the data
+shp_path = "/Users/hallielovin/Documents/GitHub/problem-set-4-ben_hallie/gz_2010_us_860_00_500k"
+
+shp = gpd.read_file(shp_path)
+
+shp.head()
+```
+
+```{python}
+#Pull out only the Texas zip codes
+
+##indicate what the TX zip codes are 
+texas_code = ("75", "76", "77", "78", "79")
+
+#make a new dataframe that only pulls out those rows that are from texas 
+texas = shp[shp["ZCTA5"].astype(str).str.startswith(texas_code)]
+```
+
+```{python}
+#Calculate the number of hospitals per zipcode based on the pos2016_df from part 1 
+
+##restrict this to tx 
+texas_2016 = pos2016_df[pos2016_df["ZIP_CD"].astype(str).str.startswith(texas_code)]
+
+#group by zipcode and count the number of hospitals
+zip_count = texas_2016.groupby("ZIP_CD").agg(
+  NUM_HOSPITALS = ("ZIP_CD", "size")
+).reset_index()
+```
+
+```{python}
+zip_count["ZIP_CD"] = zip_count["ZIP_CD"].astype(str).str.replace('.0', '', regex=False).str.strip()
+
+texas["ZCTA5"] = texas["ZCTA5"].astype(str).str.strip()
+
+texas = texas.merge(zip_count, left_on='ZCTA5', right_on='ZIP_CD', how='left')
+
+texas["NUM_HOSPITALS"] = texas["NUM_HOSPITALS"].fillna(0)
+```
+
+```{python}
+texas.head()
+```
+
+```{python}
+#make the chloropleth 
+texas_chloro = alt.Chart(texas).mark_geoshape().encode(
+    color="NUM_HOSPITALS:Q",
+    tooltip=["ZCTA5:N", "NUM_HOSPITALS:Q"]
+).properties(
+    width=800,
+    height=400
+).project("albersUsa")
+```
+
+```{python}
+texas_chloro.display()
+```
 
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
