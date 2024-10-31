@@ -55,7 +55,7 @@ path = r"/Users/hallielovin/Documents/GitHub/problem-set-4-ben_hallie"
 ben_path = r"/Users/benschiffman/Desktop/Python 2/problem-set-4-ben_hallie"
 pos2016 = r"pos2016.csv"
 
-pos2016_df = pd.read_csv(os.path.join(ben_path, pos2016))
+pos2016_df = pd.read_csv(os.path.join(path, pos2016))
 
 #convert zip code to a string 
 pos2016_df["ZIP_CD"] = pos2016_df["ZIP_CD"].astype(str).str.replace(".0", " ", regex = False)
@@ -84,7 +84,7 @@ len(pos2016_df)
 ##2017
 pos2017 = r"pos2017.csv"
 
-pos2017_df = pd.read_csv(os.path.join(ben_path, pos2017))
+pos2017_df = pd.read_csv(os.path.join(path, pos2017))
 
 #convert zips to string 
 pos2017_df["ZIP_CD"] = pos2017_df["ZIP_CD"].astype(str).str.replace(".0", " ", regex = False)
@@ -96,7 +96,7 @@ pos2017_df.head()
 ##2018-- I was getting an error (UnicodeDecodeError) so I had to get chatgpt to help 
 pos2018 = r"pos2018.csv"
 
-pos2018_df = pd.read_csv(os.path.join(ben_path, pos2018), encoding="ISO-8859-1")
+pos2018_df = pd.read_csv(os.path.join(path, pos2018), encoding="ISO-8859-1")
 
 #convert zip to string 
 pos2018_df["ZIP_CD"] = pos2018_df["ZIP_CD"].astype(str).str.replace(".0", " ", regex = False)
@@ -107,7 +107,7 @@ pos2018_df.head()
 ##2019-- I was getting an error (UnicodeDecodeError) so I had to get chatgpt to help 
 pos2019 = r"pos2019.csv"
 
-pos2019_df = pd.read_csv(os.path.join(ben_path, pos2019), encoding="ISO-8859-1")
+pos2019_df = pd.read_csv(os.path.join(path, pos2019), encoding="ISO-8859-1")
 
 #convert zip to string 
 pos2019_df["ZIP_CD"] = pos2019_df["ZIP_CD"].astype(str).str.replace(".0", " ", regex = False)
@@ -161,7 +161,7 @@ alt.Chart(pos_years_count).mark_bar().encode(
 ```
 
 4. 
-
+    a. 
 ```{python}
 #make a new dataframe that groups the data by the year counting the unique provider numbers
 pos_unique_count = pos_df.groupby("YEAR")["PRVDR_NUM"].nunique().reset_index()
@@ -175,8 +175,7 @@ alt.Chart(pos_unique_count).mark_bar().encode(
 )
 ```
 
-    a. These plots look the exact same and that is because the numbers are the same that it is taking in.
-    b. This tells us that the data is only contains one observation for each hospital in each year. There are no duplicates for the hospitals.
+    b. These plots look the exact same and that is because the numbers are the same that it is taking in. This tells us that the data is only contains one observation for each hospital in each year. There are no duplicates for the hospitals.
 
 ## Identify hospital closures in POS file (15 pts) (*)
 
@@ -255,7 +254,7 @@ len(results)
 nterminated = results[results["count_x"] == results["count_y"]]
 nterminated.head()
 
-print("Based on the above,",len(nterminated),"of", len(when_term_results), "zip codes are not true terminations")
+print("Based on the above,",len(nterminated),"of", len(term_p2016), "zip codes are not true terminations")
 ```
 
     b.
@@ -316,7 +315,7 @@ shp_path = "/Users/hallielovin/Documents/GitHub/problem-set-4-ben_hallie/gz_2010
 ben_shp_path = f"/Users/benschiffman/Desktop/Python 2/problem-set-4-ben_hallie/gz_2010_us_860_00_500k"
 
 
-shp = gpd.read_file(ben_shp_path)
+shp = gpd.read_file(shp_path)
 ```
 
 ```{python}
@@ -433,7 +432,7 @@ end = time.time()
 time_test = end - start
 print(time_test)
 ```
-Given that this took .35 seconds and there are 1935 zips in zips_texas_centoids, I expect the entire operation to take abot 68 seconds.
+Given that this took .35 seconds and there are 1935 zips in zips_texas_centoids, I expect the entire operation to take about 68 seconds.
     b.
 ```{python}
 start2 = time.time()
@@ -480,8 +479,119 @@ mean_dist_to_hospital_tx.plot(column = "mean_distance", legend = True)
 ## Effects of closures on access in Texas (15 pts)
 
 1. 
+
+```{python}
+#create a df of the facilities that had a closure in Texas based on the term_p2016 chart made in previous steps
+texas_closure = term_p2016[term_p2016["ZIP_CD"].astype(str).str.startswith(texas_code)]
+```
+
+```{python}
+#group my zip code and count the number of closures by each zipcode 
+tx_zip_closures = texas_closure.groupby("ZIP_CD").size().reset_index(name = "NUM_CLOSURES")
+
+tx_zip_closures["ZIP_CD"].astype(str)
+print(tx_zip_closures)
+```
+
 2. 
+
+```{python}
+#convert zip codes so string and strip them
+tx_zip_closures["ZIP_CD"] = tx_zip_closures["ZIP_CD"].astype(str).str.strip()
+
+texas["ZCTA5"] = texas["ZCTA5"].astype(str).str.strip()
+
+#combine the zip codes with closures to the original texas shape file and only keep those that are in the shape file
+shp_texas_closure = texas.merge(tx_zip_closures, left_on="ZCTA5", right_on="ZIP_CD", how="left")
+
+shp_texas_closure["NUM_CLOSURES"] = shp_texas_closure["NUM_CLOSURES"].fillna(0)
+
+shp_texas_closure.head()
+```
+
+```{python}
+#make a chloropleth to indicate where the zip codes are that had at least one closure 
+shp_texas_closure.plot(column = "NUM_CLOSURES", legend = True)
+```
+
+There were 33 affected zip codes that had at least one closure and are directly affected. 
+
 3. 
+
+```{python}
+#create the buffer distance to convert 10 miles into meters 
+buffer_distance = 10 * 1609.34
+```
+
+```{python}
+#had to use chatgpt to help me fix this because without this line of code it was generating one large circle
+shp_texas_closure = shp_texas_closure.to_crs(epsg=32614)
+
+#filter shp_texas_closure to only show those that had closures
+yes_closed = shp_texas_closure[shp_texas_closure["NUM_CLOSURES"] > 0]
+
+#make a chloropleth that includes the buffer 
+yes_closed.buffer(buffer_distance).plot(edgecolor="white")
+plt.axis("off")
+```
+
+```{python}
+#make a new df for zip codes indirectly affected 
+shp_buffered_zip = yes_closed.copy()
+
+#add a new column for geometry that is for the buffered distance
+shp_buffered_zip["geometry"] = shp_buffered_zip.geometry.buffer(buffer_distance)
+```
+
+```{python}
+len(shp_buffered_zip)
+```
+
+```{python}
+#make sure they are the same crs
+if texas.crs != shp_buffered_zip.crs:
+    shp_buffered_zip = shp_buffered_zip.to_crs(texas.crs)
+
+#do the spatial join
+indirect_zips = gpd.sjoin(texas, shp_buffered_zip, how="inner",predicate = "intersects")
+```
+
+```{python}
+#find how many zip codes are indirectly affected 
+indirect_zips["ZCTA5_left"].nunique()
+```
+
+There are 609 zip codes that are indirectly affected by hospital closures. 
+
 4. 
 
+```{python}
+#make a new column in the texas shapefile which indicates if a zip code is affected by a closure 
+texas["AFFECT"] = "Not Affected"
+```
+
+```{python}
+# pull out the zip codes that were indirectly affected
+indirectly_affected = indirect_zips["ZIP_CD_x"].unique()
+
+texas.loc[texas["ZCTA5"].isin(indirectly_affected), "AFFECT"] = "Indirectly Affected"
+```
+```{python}
+#pull out the zip codes that are directly affected
+directly_affected = yes_closed["ZCTA5"].unique()
+
+#find these in the texas file and label them as Directly Affected
+texas.loc[texas["ZCTA5"].isin(directly_affected), "AFFECT"] = "Directly Affected"
+```
+
+```{python}
+#make a chloropleth and color code based on the AFFECT category 
+texas.plot(column = "AFFECT", legend = True)
+plt.axis("off")
+```
+
 ## Reflecting on the exercise (10 pts) 
+1. 
+Using the first pass method could cause some issues, one of which being, when we use this method we are not seeing the exact year that a hosptial closes, we are just assuming. That said, a hospital could have actually closed in 2016, but because of the way it is coded in the data we are forced to just assume 2017. Additionally, if hospitals do not appear in the data it is assumed that they are no longer active. This is a big assumption. A hospital may not appear in data for numerous other reasons, such as a data collection misshap or it may have change categories of the type of hospital it is. It is unfair to assume that the hospital is no longer a funcitoning facility. 
+
+We can do a better job of confirming hopsital closures by having hospitals submit forms when they are officially closed to data collection agencies so they are not forced to assume. 
