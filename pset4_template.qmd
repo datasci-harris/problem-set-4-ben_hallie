@@ -365,16 +365,117 @@ texas.plot(column = "NUM_HOSPITALS", legend = True)
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
 1. 
+```{python}
+zips_all_centroids = shp.copy()
+zips_all_centroids = zips_all_centroids.to_crs(epsg=3857) #this is from chatGPT after I recieved a message about this issue
+zips_all_centroids["centroid"] = zips_all_centroids.centroid
+zips_all_centroids.head()
+zips_all_centroids.area
+```
+Source for the below answers:
+https://www2.census.gov/geo/pdfs/maps-data/data/tiger/tgrshp2024/TGRSHP2024_TechDoc.pdf
+
+Column1: GEO_ID refers to a unique alpha numeric identifier used by the census bureau for geographic areas for which is tabulates data.
+Column2: ZCTA5 is the 5 digit zip code of the tabulation area.
+Column 3: Name in this case just repeats zip code, but in other cases may refer to the actual name of an area.
+Column 4: LSAD = Legal statistical area description
+Col5: CENSUSAREA
+Geometry: Eitehr municipal or otherwise designated areas for statistical purposes
+https://www.census.gov/programs-surveys/geography/about/glossary.html
+Column6: GEOMETRY contains the WKT pologyon data for each census area.
+Column7: Centroid contains the points that represent the centroids of each census area.
+
 2. 
+```{python}
+zips_texas_centroids = zips_all_centroids[zips_all_centroids["ZCTA5"].astype(str).str.startswith(texas_code)]
+len(zips_texas_centroids)
+texas_border_codes = ("87", "880", "881", "882", "883", "884", "73", "74", "70", "71", "72")
+all_codes = texas_code + texas_border_codes
+zips_texas_borderstates_centroids = zips_all_centroids[zips_all_centroids["ZCTA5"].astype(str).str.startswith(all_codes)]
+
+print("zips_texas_centroids zips:", len(zips_texas_centroids), "\nzzips_texas_borderstates_centroids:", len(zips_texas_borderstates_centroids))
+```
 3. 
+```{python}
+#Create zip code list from 2016 of >= 1active hospitals
+zips_2016 = active_2016.copy()
+zips_2016 = zips_2016.groupby("ZIP_CD").size().reset_index()
+
+#manipulate so merge will work
+zips_2016["ZIP_CD"] = zips_2016["ZIP_CD"].str.strip()
+
+#merge
+zips_withhospital_centroids = zips_texas_borderstates_centroids.merge(
+  zips_2016,
+  left_on = "ZCTA5",
+  right_on = "ZIP_CD",
+  how = "inner"
+)
+len(zips_withhospital_centroids)
+zips_withhospital_centroids.tail()
+```
+
+I used an inner merge to preserve only rows where ZIP_CD and ZCTA5 matched. These are the variables I merged on, both represent zip code. In the output there are some redundant columns as a result, can be dealt with later.
 4. 
     a.
+```{python}
+import time
+start = time.time()
+ten_zips = zips_texas_centroids.head(10)
+ten_zip_test = gpd.sjoin_nearest(
+  ten_zips,
+  zips_withhospital_centroids,
+  how = "inner",
+  distance_col = "distance"
+)
+end = time.time()
+
+time_test = end - start
+print(time_test)
+```
+Given that this took .35 seconds and there are 1935 zips in zips_texas_centoids, I expect the entire operation to take abot 68 seconds.
     b.
+```{python}
+start2 = time.time()
+zips_texas_centroids_distances = gpd.sjoin_nearest(
+  zips_texas_centroids,
+  zips_withhospital_centroids,
+  how = "inner",
+  distance_col = "distance"
+)
+end2 = time.time()
+
+time_test2 = end2 - start2
+print(time_test2)
+```
+I was wrong! It took 94.71 seconds. This means that the time growth is not linear.
     c.
+    
+    so interestingly enough, the units are in degrees. That said, I already converted to meters because an earlier warning message, and some help from the chatGPT, reccomended I did so. The following answer will convert from meters to miles.
+```{python}
+zips_texas_centroids_distances["distance"] = zips_texas_centroids_distances["distance"] * 0.000621371
+```
 5. 
     a.
+```{python}
+zips_texas_centroids_distances
+mean_dist_to_hospital_tx = zips_texas_centroids_distances.groupby("ZIP_CD").agg(
+  mean_distance = ("distance", "mean"),
+  geometry = ("geometry", "first")
+  ).reset_index()
+```
+The distance is in miles
     b.
+```{python}
+mean_dist = mean_dist_to_hospital_tx["mean_distance"].mean()
+mean_dist
+```
+The mean as indicated above is 1.73 miles. This distance doesn't really make sense because the question iself is somewhat confusing, what does it mean to be the closest hospital to a zip code? What the merge we did only finds the closest zip code with a hospital... so this may not be all that accurate. 
     c.
+```{python}
+mean_dist_to_hospital_tx = gpd.GeoDataFrame(mean_dist_to_hospital_tx, geometry='geometry')
+mean_dist_to_hospital_tx.plot(column = "mean_distance", legend = True)
+```
     
 ## Effects of closures on access in Texas (15 pts)
 
